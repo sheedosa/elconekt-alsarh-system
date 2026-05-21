@@ -48,12 +48,12 @@ function InventoryView({ onOpenSidebar }) {
         {role === 'admin' && (
           <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
             {[
-              { label: t('skusInCatalogue'), value: inventory.length, sub: `${inventory.filter(i => ELK.invStock(i) < 30).length} ${t('lowOrOut')}` },
-              { label: t('unitsOnHand'), value: totalUnits.toLocaleString('en-US'), sub: t('availableToSell') },
-              { label: t('inventoryAtCost'), value: ELK.fmtLyd(totalCost/1000, { decimals: 0 }) + 'K', suffix: ELK.currencyCode(), sub: t('weightedAcross') },
-              { label: t('sellableValueLabel'), value: ELK.fmtLyd(totalValue/1000, { decimals: 0 }) + 'K', suffix: ELK.currencyCode(), sub: t('atCurrentPrices') },
+              { label: t('skusInCatalogue'), value: inventory.length, sub: `${inventory.filter(i => ELK.invStock(i) < 30).length} ${t('lowOrOut')}`, accent: UI.navy },
+              { label: t('unitsOnHand'), value: totalUnits.toLocaleString('en-US'), sub: t('availableToSell'), accent: UI.green },
+              { label: t('inventoryAtCost'), value: ELK.fmtLyd(totalCost/1000, { decimals: 0 }) + 'K', suffix: ELK.currencyCode(), sub: t('weightedAcross'), accent: UI.accent },
+              { label: t('sellableValueLabel'), value: ELK.fmtLyd(totalValue/1000, { decimals: 0 }) + 'K', suffix: ELK.currencyCode(), sub: t('atCurrentPrices'), accent: UI.violet },
             ].map((k, i) => (
-              <Card key={i} padding={14}>
+              <Card key={i} padding={14} style={{ boxShadow: `inset 0 2px 0 ${k.accent}` }}>
                 <div style={{ fontSize: 11.5, color: UI.muted, marginBottom: 6 }}>{k.label}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
                   <div className="elk-num" style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.3 }}>{k.value}</div>

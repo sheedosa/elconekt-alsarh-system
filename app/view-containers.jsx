@@ -265,7 +265,7 @@ function ContainerDetail({ id, onOpenSidebar }) {
           {/* Dual rate hero */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             {/* Cost */}
-            <Card>
+            <Card style={{ boxShadow: `inset 0 2px 0 ${UI.navy}` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div style={{ fontSize: 12, color: UI.muted }}>{t('totalLandedCost')}</div>
                 <span style={{ fontSize: 10.5, fontWeight: 600, color: UI.muted, padding: '2px 8px', background: UI.hover, borderRadius: 999, letterSpacing: 0.4, textTransform: 'uppercase' }}>{t('cost')}</span>
@@ -289,7 +289,7 @@ function ContainerDetail({ id, onOpenSidebar }) {
               </div>
             </Card>
             {/* Profit */}
-            <Card>
+            <Card style={{ boxShadow: `inset 0 2px 0 ${expProf >= 0 ? UI.green : UI.rose}` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div style={{ fontSize: 12, color: UI.muted, whiteSpace: 'nowrap' }}>{t('projectedProfit')}</div>
                 <span style={{ fontSize: 10.5, fontWeight: 600, color: expProf >= 0 ? UI.green : UI.rose, padding: '2px 8px', background: expProf >= 0 ? UI.greenSoft : UI.roseSoft, borderRadius: 999, letterSpacing: 0.4, textTransform: 'uppercase' }}>{expProf >= 0 ? t('profit') : t('loss')}</span>

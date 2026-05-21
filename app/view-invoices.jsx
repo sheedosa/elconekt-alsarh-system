@@ -48,12 +48,12 @@ function InvoiceList({ onOpenSidebar }) {
       <div className="elk-scroll" style={{ flex: 1, overflow: 'auto' }}>
         <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
           {[
-            { label: t('revenuePaid'), value: ELK.fmtLyd(totalRevenue/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'paid').length} ${t('paidInvoices')}` },
-            ...(role === 'admin' ? [{ label: t('grossProfitPaid'), value: ELK.fmtLyd(totalProfit/1000) + 'K', suffix: ELK.currencyCode(), sub: `${((totalProfit/totalRevenue)*100).toFixed(1)}% ${t('margin')}`, color: UI.green }] : [{ label: t('activeInvoices'), value: invoices.filter(i => ['issued', 'draft'].includes(i.status)).length, sub: t('awaitingAction') }]),
-            { label: t('awaitingPayment'), value: ELK.fmtLyd(totalIssued/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'issued').length} ${t('invoicesIssued')}` },
-            { label: t('drafts'), value: ELK.fmtLyd(totalDraft/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'draft').length} ${t('draftInvoices')}` },
+            { label: t('revenuePaid'), value: ELK.fmtLyd(totalRevenue/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'paid').length} ${t('paidInvoices')}`, accent: UI.green },
+            ...(role === 'admin' ? [{ label: t('grossProfitPaid'), value: ELK.fmtLyd(totalProfit/1000) + 'K', suffix: ELK.currencyCode(), sub: `${((totalProfit/totalRevenue)*100).toFixed(1)}% ${t('margin')}`, accent: UI.accent, color: UI.green }] : [{ label: t('activeInvoices'), value: invoices.filter(i => ['issued', 'draft'].includes(i.status)).length, sub: t('awaitingAction'), accent: UI.accent }]),
+            { label: t('awaitingPayment'), value: ELK.fmtLyd(totalIssued/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'issued').length} ${t('invoicesIssued')}`, accent: UI.amber },
+            { label: t('drafts'), value: ELK.fmtLyd(totalDraft/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'draft').length} ${t('draftInvoices')}`, accent: UI.navy },
           ].map((k, i) => (
-            <Card key={i} padding={14}>
+            <Card key={i} padding={14} style={{ boxShadow: `inset 0 2px 0 ${k.accent}` }}>
               <div style={{ fontSize: 11.5, color: UI.muted, marginBottom: 6 }}>{k.label}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
                 <div className="elk-num" style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.3, color: k.color }}>{k.value}</div>
