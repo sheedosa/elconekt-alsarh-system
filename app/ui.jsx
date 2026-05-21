@@ -7,10 +7,10 @@ const UI = {
   surfaceAlt: '#fafafa',
   hover: '#f5f5f4',
 
-  // Borders
-  border: '#ececec',
-  borderStrong: '#e0e0e0',
-  borderHair: '#f0f0f0',
+  // Borders — darkened for sharper SaaS feel without going to pure black
+  border: 'rgba(10,10,10,0.16)',
+  borderStrong: 'rgba(10,10,10,0.22)',
+  borderHair: 'rgba(10,10,10,0.06)',
 
   // Text
   text: '#0a0a0a',

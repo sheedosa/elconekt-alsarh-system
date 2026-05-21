@@ -44,15 +44,15 @@ function OverviewView({ onOpenSidebar }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
             {[
-              { label: t('revenueMay'), value: ELK.fmtLyd(totalRevenue/1000) + 'K', suffix: ELK.currencyCode(), sub: t('vsLastMonth'), accent: UI.text },
+              { label: t('revenueMay'), value: ELK.fmtLyd(totalRevenue/1000) + 'K', suffix: ELK.currencyCode(), sub: t('vsLastMonth'), accent: UI.accent },
               { label: t('grossProfit'), value: ELK.fmtLyd(totalProfit/1000) + 'K', suffix: ELK.currencyCode(), sub: `${((totalProfit/totalRevenue)*100).toFixed(1)}% ${t('margin')}`, accent: UI.green },
-              { label: t('inventoryValue'), value: ELK.fmtLyd(totalInvValue/1000) + 'K', suffix: ELK.currencyCode(), sub: `${totalUnitsInInv.toLocaleString('en-US')} ${t('unitsLabel')}`, accent: UI.text },
-              { label: t('activeContainers'), value: activeContainers, sub: `${inTransit} ${t('inTransitSub')}`, accent: UI.text },
+              { label: t('inventoryValue'), value: ELK.fmtLyd(totalInvValue/1000) + 'K', suffix: ELK.currencyCode(), sub: `${totalUnitsInInv.toLocaleString('en-US')} ${t('unitsLabel')}`, accent: UI.violet },
+              { label: t('activeContainers'), value: activeContainers, sub: `${inTransit} ${t('inTransitSub')}`, accent: UI.navy },
             ].map((k, i) => (
-              <Card key={i} padding={16}>
+              <Card key={i} padding={16} style={{ boxShadow: `inset 0 2px 0 ${k.accent}` }}>
                 <div style={{ fontSize: 12, color: UI.muted, marginBottom: 8 }}>{k.label}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <div className="elk-num" style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, color: k.accent }}>{k.value}</div>
+                  <div className="elk-num" style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, color: UI.text }}>{k.value}</div>
                   {k.suffix && <div style={{ fontSize: 12, color: UI.muted, fontWeight: 500 }}>{k.suffix}</div>}
                 </div>
                 <div style={{ fontSize: 11.5, color: UI.faint, marginTop: 4 }}>{k.sub}</div>

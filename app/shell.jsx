@@ -49,9 +49,9 @@ function Sidebar({ open, setOpen }) {
           return (
             <button key={it.id} onClick={() => { navigate(it.id); if (isMobile) setOpen(false); }} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '7px 8px', borderRadius: 6,
-              background: active ? '#f4f4f5' : 'transparent',
-              color: active ? UI.text : UI.muted,
-              fontSize: 13.5, fontWeight: active ? 500 : 450, cursor: 'pointer',
+              background: active ? UI.accentSoft : 'transparent',
+              color: active ? UI.accentText : UI.muted,
+              fontSize: 13.5, fontWeight: active ? 600 : 450, cursor: 'pointer',
               border: 'none', textAlign: 'start', fontFamily: 'inherit', width: '100%',
             }}>
               <Icon name={it.icon} size={15} />

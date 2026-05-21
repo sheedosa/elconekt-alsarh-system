@@ -50,12 +50,12 @@ function ContainerList({ onOpenSidebar }) {
         {/* KPIs */}
         <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
           {[
-            { label: t('activeContainers'), value: containers.length, sub: `${inTransit} ${t('inTransitSub')} · ${arrived} ${t('arrivedSub')}` },
-            { label: t('capitalDeployed'), value: `${(totalLanded/1_000_000).toFixed(2)}M`, suffix: ELK.currencyCode(), sub: t('acrossShipments') },
-            { label: t('avgLockedRate'), value: avgRate.toFixed(3), suffix: ELK.currencyPair(), sub: t('weightedAcross') },
-            { label: t('unitsInInventory'), value: totalStock.toLocaleString('en-US'), sub: t('pushedNotSold') },
+            { label: t('activeContainers'), value: containers.length, sub: `${inTransit} ${t('inTransitSub')} · ${arrived} ${t('arrivedSub')}`, accent: UI.navy },
+            { label: t('capitalDeployed'), value: `${(totalLanded/1_000_000).toFixed(2)}M`, suffix: ELK.currencyCode(), sub: t('acrossShipments'), accent: UI.accent },
+            { label: t('avgLockedRate'), value: avgRate.toFixed(3), suffix: ELK.currencyPair(), sub: t('weightedAcross'), accent: UI.violet },
+            { label: t('unitsInInventory'), value: totalStock.toLocaleString('en-US'), sub: t('pushedNotSold'), accent: UI.green },
           ].map((k, i) => (
-            <Card key={i} padding={14} style={{ borderRadius: 10 }}>
+            <Card key={i} padding={14} style={{ borderRadius: 10, boxShadow: `inset 0 2px 0 ${k.accent}` }}>
               <div style={{ fontSize: 11.5, color: UI.muted, marginBottom: 6 }}>{k.label}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
                 <div className="elk-num" style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.3 }}>{k.value}</div>
