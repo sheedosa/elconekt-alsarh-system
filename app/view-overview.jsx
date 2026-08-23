@@ -3,14 +3,17 @@
 function OverviewView({ onOpenSidebar }) {
   const { navigate, containers, inventory, invoices, clients, isMobile, lang } = useApp();
 
-  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + ELK.invoiceTotal(i), 0);
-  const totalProfit = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + ELK.invoiceProfit(i), 0);
+  const paidInvoices = invoices.filter(i => i.status === 'paid');
+  const totalRevenue = paidInvoices.reduce((s, i) => s + ELK.invoiceTotal(i), 0);
+  const totalProfit = paidInvoices.reduce((s, i) => s + ELK.invoiceProfit(i), 0);
   const totalUnitsInInv = inventory.reduce((s, i) => s + ELK.invStock(i), 0);
   const totalInvValue = inventory.reduce((s, i) => s + ELK.invStock(i) * i.priceLyd, 0);
   const activeContainers = containers.filter(c => c.status !== 'closed').length;
   const inTransit = containers.filter(c => c.status === 'in_transit').length;
 
-  const agentBoard = ELK.AGENTS.filter(a => a.role === 'agent').map(a => ({
+  // Everyone with paid revenue belongs on the board (admin-created invoices
+  // count toward totals, so they must be visible here too).
+  const agentBoard = ELK.AGENTS.filter(a => a.role === 'agent' || ELK.agentSales(a.id, 'paid') > 0).map(a => ({
     agent: a,
     revenue: ELK.agentSales(a.id, 'paid'),
     count: invoices.filter(i => i.agentId === a.id && i.status === 'paid').length,
@@ -44,9 +47,9 @@ function OverviewView({ onOpenSidebar }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
             {[
-              { label: t('revenueMay'), value: ELK.fmtLyd(totalRevenue/1000) + 'K', suffix: ELK.currencyCode(), sub: t('vsLastMonth'), accent: UI.accent },
-              { label: t('grossProfit'), value: ELK.fmtLyd(totalProfit/1000) + 'K', suffix: ELK.currencyCode(), sub: `${((totalProfit/totalRevenue)*100).toFixed(1)}% ${t('margin')}`, accent: UI.green },
-              { label: t('inventoryValue'), value: ELK.fmtLyd(totalInvValue/1000) + 'K', suffix: ELK.currencyCode(), sub: `${totalUnitsInInv.toLocaleString('en-US')} ${t('unitsLabel')}`, accent: UI.violet },
+              { label: t('revenueMay'), value: ELK.fmtCompactLyd(totalRevenue), suffix: ELK.currencyCode(), sub: `${paidInvoices.length} ${t('paidInvoices')}`, accent: UI.accent },
+              { label: t('grossProfit'), value: ELK.fmtCompactLyd(totalProfit), suffix: ELK.currencyCode(), sub: `${ELK.fmtPct(ELK.pct(totalProfit, totalRevenue))} ${t('margin')}`, accent: UI.green },
+              { label: t('inventoryValue'), value: ELK.fmtCompactLyd(totalInvValue), suffix: ELK.currencyCode(), sub: `${totalUnitsInInv.toLocaleString('en-US')} ${t('unitsLabel')}`, accent: UI.violet },
               { label: t('activeContainers'), value: activeContainers, sub: `${inTransit} ${t('inTransitSub')}`, accent: UI.navy },
             ].map((k, i) => (
               <Card key={i} padding={16} style={{ boxShadow: `inset 0 2px 0 ${k.accent}` }}>
@@ -70,7 +73,7 @@ function OverviewView({ onOpenSidebar }) {
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: UI.green }} /> {t('profit')}</span>
                 </div>}
               />
-              <RevenueBars />
+              <RevenueBars invoices={invoices} />
             </Card>
 
             <Card>
@@ -181,27 +184,36 @@ function OverviewView({ onOpenSidebar }) {
   );
 }
 
-function RevenueBars() {
-  const days = [
-    { d: 'Mon', revenue: 18200, profit: 5400 },
-    { d: 'Tue', revenue: 24800, profit: 7200 },
-    { d: 'Wed', revenue: 14600, profit: 4100 },
-    { d: 'Thu', revenue: 32400, profit: 9800 },
-    { d: 'Fri', revenue: 27900, profit: 8300 },
-    { d: 'Sat', revenue: 9200,  profit: 2700 },
-    { d: 'Sun', revenue: 4100,  profit: 1200 },
-  ];
-  const max = Math.max(...days.map(d => d.revenue));
+function RevenueBars({ invoices }) {
+  // Actual paid revenue and profit per day over the last 7 calendar days of
+  // recorded activity (was previously hardcoded demo data).
+  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const paid = invoices.filter(i => i.status === 'paid' && i.date);
+  const lastDate = invoices.reduce((m, i) => (i.date && i.date > m ? i.date : m), '');
+  const end = lastDate ? new Date(lastDate + 'T00:00:00') : new Date();
+  const days = Array.from({ length: 7 }, (_, k) => {
+    const d = new Date(end);
+    d.setDate(end.getDate() - (6 - k));
+    const iso = d.toISOString().slice(0, 10);
+    const dayInvoices = paid.filter(i => i.date === iso);
+    return {
+      d: WEEKDAYS[d.getDay()],
+      revenue: dayInvoices.reduce((s, i) => s + ELK.invoiceTotal(i), 0),
+      profit: dayInvoices.reduce((s, i) => s + ELK.invoiceProfit(i), 0),
+    };
+  });
+  const max = Math.max(...days.map(d => d.revenue), 1);
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 180, padding: '12px 0 0' }}>
-      {days.map(d => {
+    // Day columns must stretch to the full 180px so the % bar heights resolve.
+    <div style={{ display: 'flex', alignItems: 'stretch', gap: 12, height: 180, padding: '12px 0 0' }}>
+      {days.map((d, i) => {
         const rh = (d.revenue / max) * 100;
-        const ph = (d.profit / max) * 100;
+        const ph = (Math.max(d.profit, 0) / max) * 100;
         return (
-          <div key={d.d} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
             <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: 4 }}>
               <div style={{ flex: 1, height: `${rh}%`, background: UI.navy, borderRadius: '4px 4px 0 0', position: 'relative', transition: 'height .25s' }}>
-                <div className="elk-num" style={{ position: 'absolute', top: -18, insetInlineStart: '50%', transform: 'translateX(-50%)', fontSize: 10, color: UI.muted, whiteSpace: 'nowrap' }}>{(d.revenue/1000).toFixed(1)}K</div>
+                <div className="elk-num" style={{ position: 'absolute', top: -18, insetInlineStart: '50%', transform: 'translateX(-50%)', fontSize: 10, color: UI.muted, whiteSpace: 'nowrap' }}>{ELK.fmtCompactLyd(d.revenue)}</div>
               </div>
               <div style={{ flex: 1, height: `${ph}%`, background: UI.green, borderRadius: '4px 4px 0 0' }} />
             </div>

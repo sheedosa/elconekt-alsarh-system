@@ -27,9 +27,10 @@ function useIsMobile(breakpoint = 768) {
 
 // ─── Sidebar ───────────────────────────────────────────────────────────────
 function Sidebar({ open, setOpen }) {
-  const { route, navigate, role, setRole, lang, setLang } = useApp();
+  const { route, navigate, role, setRole, lang, setLang, invoices } = useApp();
   const isMobile = useIsMobile();
   const items = ROUTES.filter(r => role === 'admin' || !r.adminOnly);
+  const openInvoices = invoices.filter(i => i.status === 'draft' || i.status === 'issued').length;
 
   const content = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '18px 12px' }}>
@@ -56,7 +57,7 @@ function Sidebar({ open, setOpen }) {
             }}>
               <Icon name={it.icon} size={15} />
               <span>{t(it.tKey)}</span>
-              {it.id === 'invoices' && role === 'agent' && <span style={{ marginInlineStart: 'auto', fontSize: 10, background: UI.accent, color: '#fff', padding: '1px 6px', borderRadius: 999 }}>3</span>}
+              {it.id === 'invoices' && role === 'agent' && openInvoices > 0 && <span className="elk-num" style={{ marginInlineStart: 'auto', fontSize: 10, background: UI.accent, color: '#fff', padding: '1px 6px', borderRadius: 999 }}>{openInvoices}</span>}
             </button>
           );
         })}
@@ -205,6 +206,11 @@ function App() {
   const [inventory, setInventory] = useState(ELK.INVENTORY);
   const [invoices, setInvoices] = useState(ELK.INVOICES);
   const [clients, setClients] = useState(ELK.CLIENTS);
+
+  // Mirror live state into the ELK helper registry before children render,
+  // so every calculation (stock, sold, cost, revenue) uses the same data
+  // the views are rendering.
+  ELK.syncState({ containers, inventory, invoices });
 
   const navigate = (r, p = {}) => { _setRoute(r); setParams(p); window.scrollTo(0, 0); };
 

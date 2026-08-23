@@ -48,10 +48,10 @@ function InvoiceList({ onOpenSidebar }) {
       <div className="elk-scroll" style={{ flex: 1, overflow: 'auto' }}>
         <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
           {[
-            { label: t('revenuePaid'), value: ELK.fmtLyd(totalRevenue/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'paid').length} ${t('paidInvoices')}`, accent: UI.green },
-            ...(role === 'admin' ? [{ label: t('grossProfitPaid'), value: ELK.fmtLyd(totalProfit/1000) + 'K', suffix: ELK.currencyCode(), sub: `${((totalProfit/totalRevenue)*100).toFixed(1)}% ${t('margin')}`, accent: UI.accent, color: UI.green }] : [{ label: t('activeInvoices'), value: invoices.filter(i => ['issued', 'draft'].includes(i.status)).length, sub: t('awaitingAction'), accent: UI.accent }]),
-            { label: t('awaitingPayment'), value: ELK.fmtLyd(totalIssued/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'issued').length} ${t('invoicesIssued')}`, accent: UI.amber },
-            { label: t('drafts'), value: ELK.fmtLyd(totalDraft/1000) + 'K', suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'draft').length} ${t('draftInvoices')}`, accent: UI.navy },
+            { label: t('revenuePaid'), value: ELK.fmtCompactLyd(totalRevenue), suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'paid').length} ${t('paidInvoices')}`, accent: UI.green },
+            ...(role === 'admin' ? [{ label: t('grossProfitPaid'), value: ELK.fmtCompactLyd(totalProfit), suffix: ELK.currencyCode(), sub: `${ELK.fmtPct(ELK.pct(totalProfit, totalRevenue))} ${t('margin')}`, accent: UI.accent, color: UI.green }] : [{ label: t('activeInvoices'), value: invoices.filter(i => ['issued', 'draft'].includes(i.status)).length, sub: t('awaitingAction'), accent: UI.accent }]),
+            { label: t('awaitingPayment'), value: ELK.fmtCompactLyd(totalIssued), suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'issued').length} ${t('invoicesIssued')}`, accent: UI.amber },
+            { label: t('drafts'), value: ELK.fmtCompactLyd(totalDraft), suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'draft').length} ${t('draftInvoices')}`, accent: UI.navy },
           ].map((k, i) => (
             <Card key={i} padding={14} style={{ boxShadow: `inset 0 2px 0 ${k.accent}` }}>
               <div style={{ fontSize: 11.5, color: UI.muted, marginBottom: 6 }}>{k.label}</div>
@@ -299,7 +299,7 @@ function InvoiceDetail({ id, onOpenSidebar }) {
                   <div style={{ fontSize: 11, color: UI.faint, marginTop: 2 }}>{t('calculatedFromLots')}</div>
                 </div>
                 <div className="elk-num" style={{ fontSize: 22, fontWeight: 700, color: profit >= 0 ? UI.green : UI.rose, letterSpacing: -0.3 }}>{ELK.fmtLyd(profit, { sign: true })} {ELK.currencyCode()}</div>
-                <div className="elk-num" style={{ fontSize: 13, color: UI.muted, fontWeight: 500 }}>{((profit/total)*100).toFixed(1)}% {t('margin')}</div>
+                <div className="elk-num" style={{ fontSize: 13, color: UI.muted, fontWeight: 500 }}>{ELK.fmtPct(ELK.pct(profit, total))} {t('margin')}</div>
               </div>
             </Card>
           )}
@@ -333,12 +333,20 @@ function NewInvoiceModal({ clientId, onClose }) {
   });
 
   const addLine = (item) => {
+    const stock = ELK.invStock(item);
     const existing = lines.find(l => l.sku === item.sku);
-    if (existing) setLines(lines.map(l => l.sku === item.sku ? { ...l, qty: l.qty + 1 } : l));
+    if (existing) setLines(lines.map(l => l.sku === item.sku ? { ...l, qty: Math.min(stock, l.qty + 1) } : l));
     else setLines([...lines, { sku: item.sku, qty: 1, priceLyd: item.priceLyd }]);
     setProductSearch('');
   };
-  const updateLine = (sku, patch) => setLines(lines.map(l => l.sku === sku ? { ...l, ...patch } : l));
+  const updateLine = (sku, patch) => {
+    // Quantities can never exceed what is actually in stock.
+    if (patch.qty != null) {
+      const item = ELK.findInvSku(sku);
+      if (item) patch = { ...patch, qty: Math.min(patch.qty, ELK.invStock(item)) };
+    }
+    setLines(lines.map(l => l.sku === sku ? { ...l, ...patch } : l));
+  };
   const removeLine = (sku) => setLines(lines.filter(l => l.sku !== sku));
 
   const subtotal = lines.reduce((s, l) => s + l.qty * l.priceLyd, 0);
@@ -346,7 +354,7 @@ function NewInvoiceModal({ clientId, onClose }) {
   const handleSave = (issue = false) => {
     if (!selectedClient) { showToast(t('selectClientFirst'), 'error'); return; }
     if (lines.length === 0) { showToast(t('addAtLeastOne'), 'error'); return; }
-    const id = `INV-2025-${String(invoices.length + 185).padStart(4, '0')}`;
+    const id = ELK.nextInvoiceId(invoices);
     const next = {
       id, date: new Date().toISOString().slice(0, 10),
       clientId: selectedClient, agentId: role === 'admin' ? 'U-001' : 'U-002',
