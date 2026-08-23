@@ -159,7 +159,7 @@ function Pill({ status, label, size = 'md' }) {
 }
 
 // ─── Button ────────────────────────────────────────────────────────────────
-function Button({ variant = 'secondary', size = 'md', icon, iconRight, children, onClick, disabled, style, type = 'button' }) {
+function Button({ variant = 'secondary', size = 'md', icon, iconRight, children, onClick, disabled, style, title, type = 'button' }) {
   const sizes = {
     sm: { padding: '5px 9px', fontSize: 12, gap: 5 },
     md: { padding: '7px 12px', fontSize: 13, gap: 6 },
@@ -175,7 +175,7 @@ function Button({ variant = 'secondary', size = 'md', icon, iconRight, children,
   const v = variants[variant];
   const sz = sizes[size];
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={v.className} style={{
+    <button type={type} onClick={onClick} disabled={disabled} title={title} className={v.className} style={{
       display: 'inline-flex', alignItems: 'center', gap: sz.gap, padding: sz.padding,
       fontSize: sz.fontSize, fontWeight: 500, fontFamily: 'inherit',
       borderRadius: 6, cursor: disabled ? 'not-allowed' : 'pointer',

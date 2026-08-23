@@ -272,6 +272,12 @@ function ledger() {
 }
 
 // ─── Inventory helpers ─────────────────────────────────────────────────────
+// INVARIANT: sales inventory is whatever was explicitly pushed, and nothing
+// else. Every figure below derives solely from `inventory[].lots`, which are
+// only ever created by the push-to-inventory flow. A container's own `units`
+// and `products` describe goods in the warehouse, NOT stock available to
+// sales — never feed them into a stock count, catalogue entry, or value.
+//
 // Units sold = invoiced on issued + paid invoices. Drafts don't reserve
 // stock; refunded invoices return their units to stock.
 function soldQty(sku) { return ledger().soldBySku[sku] || 0; }
@@ -305,9 +311,13 @@ function containerPushed(c) {
 function containerSold(c) { return ledger().soldByContainer[c.id] || 0; }
 function containerInInventory(c) {
   // Units from this container currently on the shelf (pushed minus sold).
-  return containerPushed(c) - containerSold(c);
+  return Math.max(0, containerPushed(c) - containerSold(c));
 }
-function containerNotPushed(c) { return c.units - containerPushed(c); }
+// Still in the warehouse, not yet released to sales. Clamped so a manifest
+// larger than the container's unit count can't render a negative.
+function containerNotPushed(c) { return Math.max(0, c.units - containerPushed(c)); }
+// Units this container may still release — the ceiling for any one push.
+function containerPushCapacity(c) { return Math.max(0, c.units - containerPushed(c)); }
 function realisedRevenueLyd(c) {
   // Actual paid-invoice revenue attributed to this container's lots (FIFO).
   return ledger().paidRevenueByContainer[c.id] || 0;
@@ -433,7 +443,7 @@ window.ELK = {
   STATE, syncState, LOW_STOCK,
   landedUsd, landedLyd, unitCostUsd, unitCostLyd, pct,
   soldQty, invStock, invTotalQty, invAvgCostLyd, invMarginLyd, invMarginPct,
-  containerPushed, containerSold, containerInInventory, containerNotPushed,
+  containerPushed, containerSold, containerInInventory, containerNotPushed, containerPushCapacity,
   expectedRevenueLyd, expectedProfitLyd, marginPct, realisedRevenueLyd,
   invoiceTotal, invoiceCost, invoiceProfit, returnedStats,
   clientInvoices, clientOrderCount, clientRefundCount, clientSpend, agentSales,
