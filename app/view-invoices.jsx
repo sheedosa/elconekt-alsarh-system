@@ -29,6 +29,7 @@ function InvoiceList({ onOpenSidebar }) {
   const totalProfit = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + ELK.invoiceProfit(i), 0);
   const totalDraft = invoices.filter(i => i.status === 'draft').reduce((s, i) => s + ELK.invoiceTotal(i), 0);
   const totalIssued = invoices.filter(i => i.status === 'issued').reduce((s, i) => s + ELK.invoiceTotal(i), 0);
+  const returned = ELK.returnedStats();
 
   return (
     <>
@@ -46,12 +47,13 @@ function InvoiceList({ onOpenSidebar }) {
       />
 
       <div className="elk-scroll" style={{ flex: 1, overflow: 'auto' }}>
-        <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
+        <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 10 }}>
           {[
             { label: t('revenuePaid'), value: ELK.fmtCompactLyd(totalRevenue), suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'paid').length} ${t('paidInvoices')}`, accent: UI.green },
             ...(role === 'admin' ? [{ label: t('grossProfitPaid'), value: ELK.fmtCompactLyd(totalProfit), suffix: ELK.currencyCode(), sub: `${ELK.fmtPct(ELK.pct(totalProfit, totalRevenue))} ${t('margin')}`, accent: UI.accent, color: UI.green }] : [{ label: t('activeInvoices'), value: invoices.filter(i => ['issued', 'draft'].includes(i.status)).length, sub: t('awaitingAction'), accent: UI.accent }]),
             { label: t('awaitingPayment'), value: ELK.fmtCompactLyd(totalIssued), suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'issued').length} ${t('invoicesIssued')}`, accent: UI.amber },
             { label: t('drafts'), value: ELK.fmtCompactLyd(totalDraft), suffix: ELK.currencyCode(), sub: `${invoices.filter(i => i.status === 'draft').length} ${t('draftInvoices')}`, accent: UI.navy },
+            { label: t('returnsLabel'), value: ELK.fmtCompactLyd(returned.value), suffix: ELK.currencyCode(), sub: `${returned.count} ${t('refundedInvoices')}`, accent: UI.rose },
           ].map((k, i) => (
             <Card key={i} padding={14} style={{ boxShadow: `inset 0 2px 0 ${k.accent}` }}>
               <div style={{ fontSize: 11.5, color: UI.muted, marginBottom: 6 }}>{k.label}</div>
@@ -296,10 +298,19 @@ function InvoiceDetail({ id, onOpenSidebar }) {
                 <span style={{ fontSize: 10.5, fontWeight: 600, color: UI.muted, padding: '2px 8px', background: UI.hover, borderRadius: 999, letterSpacing: 0.4, textTransform: 'uppercase' }}>{t('adminOnly')}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, color: UI.muted }}>{t('grossProfitOnInvoice')}</div>
-                  <div style={{ fontSize: 11, color: UI.faint, marginTop: 2 }}>{t('calculatedFromLots')}</div>
+                  <div style={{ fontSize: 11, color: inv.status === 'refunded' ? UI.rose : UI.faint, marginTop: 2 }}>
+                    {inv.status === 'refunded' ? t('refundedExcluded') : inv.status === 'draft' ? t('draftEstimate') : t('calculatedFromLots')}
+                  </div>
                 </div>
-                <div className="elk-num" style={{ fontSize: 22, fontWeight: 700, color: profit >= 0 ? UI.green : UI.rose, letterSpacing: -0.3 }}>{ELK.fmtLyd(profit, { sign: true })} {ELK.currencyCode()}</div>
-                <div className="elk-num" style={{ fontSize: 13, color: UI.muted, fontWeight: 500 }}>{ELK.fmtPct(ELK.pct(profit, total))} {t('margin')}</div>
+                {/* A refunded invoice earns nothing — show only the excluded amount, never a profit figure. */}
+                {inv.status === 'refunded' ? (
+                  <div className="elk-num" style={{ fontSize: 22, fontWeight: 700, color: UI.muted, letterSpacing: -0.3, textDecoration: 'line-through' }}>{ELK.fmtLyd(total)} {ELK.currencyCode()}</div>
+                ) : (
+                  <>
+                    <div className="elk-num" style={{ fontSize: 22, fontWeight: 700, color: profit >= 0 ? UI.green : UI.rose, letterSpacing: -0.3 }}>{ELK.fmtLyd(profit, { sign: true })} {ELK.currencyCode()}</div>
+                    <div className="elk-num" style={{ fontSize: 13, color: UI.muted, fontWeight: 500 }}>{ELK.fmtPct(ELK.pct(profit, total))} {t('margin')}</div>
+                  </>
+                )}
               </div>
             </Card>
           )}

@@ -338,7 +338,20 @@ function invoiceCost(inv) {
   }, 0);
 }
 function invoiceProfit(inv) { return invoiceTotal(inv) - invoiceCost(inv); }
+// Returns are excluded from revenue/profit by design; these make them visible.
+function returnedStats() {
+  const refunded = STATE.invoices.filter(i => i.status === 'refunded');
+  return {
+    count: refunded.length,
+    value: refunded.reduce((s, i) => s + invoiceTotal(i), 0),
+    units: refunded.reduce((s, i) => s + i.lines.reduce((ls, l) => ls + l.qty, 0), 0),
+  };
+}
 function clientInvoices(clientId) { return STATE.invoices.filter(i => i.clientId === clientId); }
+// "Orders" are completed sales (issued + paid) — drafts and refunds don't
+// count, so order counts always agree with spend.
+function clientOrderCount(clientId) { return clientInvoices(clientId).filter(i => i.status === 'issued' || i.status === 'paid').length; }
+function clientRefundCount(clientId) { return clientInvoices(clientId).filter(i => i.status === 'refunded').length; }
 function clientSpend(clientId) { return clientInvoices(clientId).filter(i => i.status === 'paid').reduce((s, i) => s + invoiceTotal(i), 0); }
 function agentSales(agentId, status = null) {
   return STATE.invoices.filter(i => i.agentId === agentId && (!status || i.status === status)).reduce((s, i) => s + invoiceTotal(i), 0);
@@ -422,7 +435,8 @@ window.ELK = {
   soldQty, invStock, invTotalQty, invAvgCostLyd, invMarginLyd, invMarginPct,
   containerPushed, containerSold, containerInInventory, containerNotPushed,
   expectedRevenueLyd, expectedProfitLyd, marginPct, realisedRevenueLyd,
-  invoiceTotal, invoiceCost, invoiceProfit, clientInvoices, clientSpend, agentSales,
+  invoiceTotal, invoiceCost, invoiceProfit, returnedStats,
+  clientInvoices, clientOrderCount, clientRefundCount, clientSpend, agentSales,
   nextInvoiceId, nextContainerId,
   fmtLyd, fmtUsd, fmtCompactLyd, fmtPct, fmtDate, fmtDateShort, statusLabel,
   currencyCode, currencyPair,

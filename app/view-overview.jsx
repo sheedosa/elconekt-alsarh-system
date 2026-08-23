@@ -6,6 +6,7 @@ function OverviewView({ onOpenSidebar }) {
   const paidInvoices = invoices.filter(i => i.status === 'paid');
   const totalRevenue = paidInvoices.reduce((s, i) => s + ELK.invoiceTotal(i), 0);
   const totalProfit = paidInvoices.reduce((s, i) => s + ELK.invoiceProfit(i), 0);
+  const returned = ELK.returnedStats();
   const totalUnitsInInv = inventory.reduce((s, i) => s + ELK.invStock(i), 0);
   const totalInvValue = inventory.reduce((s, i) => s + ELK.invStock(i) * i.priceLyd, 0);
   const activeContainers = containers.filter(c => c.status !== 'closed').length;
@@ -23,7 +24,7 @@ function OverviewView({ onOpenSidebar }) {
   const topClients = clients.map(c => ({
     client: c,
     spend: ELK.clientSpend(c.id),
-    count: ELK.clientInvoices(c.id).length,
+    count: ELK.clientOrderCount(c.id),
   })).sort((a, b) => b.spend - a.spend).slice(0, 5);
 
   const recent = invoices.slice(0, 5);
@@ -47,7 +48,7 @@ function OverviewView({ onOpenSidebar }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
             {[
-              { label: t('revenueMay'), value: ELK.fmtCompactLyd(totalRevenue), suffix: ELK.currencyCode(), sub: `${paidInvoices.length} ${t('paidInvoices')}`, accent: UI.accent },
+              { label: t('revenueMay'), value: ELK.fmtCompactLyd(totalRevenue), suffix: ELK.currencyCode(), sub: `${paidInvoices.length} ${t('paidInvoices')}${returned.value > 0 ? ` · ${ELK.fmtCompactLyd(returned.value)} ${t('returnedSuffix')}` : ''}`, accent: UI.accent },
               { label: t('grossProfit'), value: ELK.fmtCompactLyd(totalProfit), suffix: ELK.currencyCode(), sub: `${ELK.fmtPct(ELK.pct(totalProfit, totalRevenue))} ${t('margin')}`, accent: UI.green },
               { label: t('inventoryValue'), value: ELK.fmtCompactLyd(totalInvValue), suffix: ELK.currencyCode(), sub: `${totalUnitsInInv.toLocaleString('en-US')} ${t('unitsLabel')}`, accent: UI.violet },
               { label: t('activeContainers'), value: activeContainers, sub: `${inTransit} ${t('inTransitSub')}`, accent: UI.navy },

@@ -77,7 +77,7 @@ function ClientList({ onOpenSidebar }) {
               </thead>
               <tbody>
                 {filtered.map((c, idx) => {
-                  const invs = ELK.clientInvoices(c.id);
+                  const orders = ELK.clientOrderCount(c.id);
                   const spend = ELK.clientSpend(c.id);
                   return (
                     <tr key={c.id} onClick={() => navigate('clients', { id: c.id })} className="elk-row-hover" style={{ borderBottom: idx === filtered.length - 1 ? 'none' : `1px solid ${UI.borderHair}`, cursor: 'pointer' }}>
@@ -96,7 +96,7 @@ function ClientList({ onOpenSidebar }) {
                         <div style={{ fontSize: 11.5, color: UI.muted, marginTop: 1 }}>{c.email}</div>
                       </td>
                       <td style={{ padding: '13px 14px', color: UI.muted, fontSize: 12.5 }}>{tCity(c.city)}</td>
-                      <td className="elk-num" style={{ padding: '13px 14px', textAlign: 'end' }}>{invs.length}</td>
+                      <td className="elk-num" style={{ padding: '13px 14px', textAlign: 'end' }}>{orders}</td>
                       <td className="elk-num" style={{ padding: '13px 14px', textAlign: 'end', fontWeight: 500 }}>
                         {ELK.fmtLyd(spend)} <span style={{ fontSize: 10.5, color: UI.faint, fontWeight: 400 }}>{ELK.currencyCode()}</span>
                       </td>
@@ -121,7 +121,7 @@ function ClientList({ onOpenSidebar }) {
         {isMobile && (
           <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filtered.map(c => {
-              const invs = ELK.clientInvoices(c.id);
+              const orders = ELK.clientOrderCount(c.id);
               const spend = ELK.clientSpend(c.id);
               return (
                 <Card key={c.id} padding={12} style={{ cursor: 'pointer' }}>
@@ -135,7 +135,7 @@ function ClientList({ onOpenSidebar }) {
                       <Pill status={c.type} size="sm" />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: `1px solid ${UI.borderHair}` }}>
-                      <span style={{ fontSize: 11.5, color: UI.muted }}>{invs.length} {t('orders').toLowerCase()}</span>
+                      <span style={{ fontSize: 11.5, color: UI.muted }}>{orders} {t('orders').toLowerCase()}</span>
                       <span className="elk-num" style={{ fontSize: 13, fontWeight: 600 }}>{ELK.fmtLyd(spend)} {ELK.currencyCode()}</span>
                     </div>
                   </div>
@@ -156,7 +156,8 @@ function ClientProfile({ id, onOpenSidebar }) {
 
   const invs = ELK.clientInvoices(id);
   const totalSpend = ELK.clientSpend(id);
-  const totalInvoices = invs.length;
+  const orderCount = ELK.clientOrderCount(id);
+  const refundCount = ELK.clientRefundCount(id);
   const lastInvoice = invs[0];
   const clientNameLocalized = tClientName(client.id, client.name);
 
@@ -197,8 +198,10 @@ function ClientProfile({ id, onOpenSidebar }) {
               </div>
               <div style={{ display: 'flex', gap: 24, paddingInlineStart: 16, borderInlineStart: `1px solid ${UI.border}`, flexShrink: 0 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: UI.muted }}>{t('totalInvoices')}</div>
-                  <div className="elk-num" style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.3, marginTop: 2 }}>{totalInvoices}</div>
+                  <div style={{ fontSize: 11, color: UI.muted }}>{t('orders')}</div>
+                  <div className="elk-num" style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.3, marginTop: 2 }}>
+                    {orderCount}{refundCount > 0 && <span style={{ fontSize: 11.5, fontWeight: 500, color: UI.rose }}> · {refundCount} {t('refundedCountSuffix')}</span>}
+                  </div>
                 </div>
                 <div>
                   <div style={{ fontSize: 11, color: UI.muted }}>{t('lifetimeSpend')}</div>
