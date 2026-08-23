@@ -14,7 +14,7 @@ function InventoryView({ onOpenSidebar }) {
 
   const filtered = inventory.filter(item => {
     const stock = ELK.invStock(item);
-    if (filter === 'low' && stock > 30) return false;
+    if (filter === 'low' && !(stock > 0 && stock < ELK.LOW_STOCK)) return false;
     if (filter === 'out' && stock > 0) return false;
     if (filter === 'available' && stock <= 0) return false;
     if (cat !== 'all' && item.cat !== cat) return false;
@@ -27,7 +27,7 @@ function InventoryView({ onOpenSidebar }) {
 
   const totalUnits = inventory.reduce((s, i) => s + ELK.invStock(i), 0);
   const totalValue = inventory.reduce((s, i) => s + ELK.invStock(i) * i.priceLyd, 0);
-  const totalCost = inventory.reduce((s, i) => s + ELK.invStock(i) * ELK.invAvgCostLyd(i), 0);
+  const totalCost = inventory.reduce((s, i) => s + ELK.invStock(i) * (ELK.invAvgCostLyd(i) ?? 0), 0);
 
   return (
     <>
@@ -48,10 +48,10 @@ function InventoryView({ onOpenSidebar }) {
         {role === 'admin' && (
           <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
             {[
-              { label: t('skusInCatalogue'), value: inventory.length, sub: `${inventory.filter(i => ELK.invStock(i) < 30).length} ${t('lowOrOut')}`, accent: UI.navy },
+              { label: t('skusInCatalogue'), value: inventory.length, sub: `${inventory.filter(i => ELK.invStock(i) < ELK.LOW_STOCK).length} ${t('lowOrOut')}`, accent: UI.navy },
               { label: t('unitsOnHand'), value: totalUnits.toLocaleString('en-US'), sub: t('availableToSell'), accent: UI.green },
-              { label: t('inventoryAtCost'), value: ELK.fmtLyd(totalCost/1000, { decimals: 0 }) + 'K', suffix: ELK.currencyCode(), sub: t('weightedAcross'), accent: UI.accent },
-              { label: t('sellableValueLabel'), value: ELK.fmtLyd(totalValue/1000, { decimals: 0 }) + 'K', suffix: ELK.currencyCode(), sub: t('atCurrentPrices'), accent: UI.violet },
+              { label: t('inventoryAtCost'), value: ELK.fmtCompactLyd(totalCost), suffix: ELK.currencyCode(), sub: t('weightedAcross'), accent: UI.accent },
+              { label: t('sellableValueLabel'), value: ELK.fmtCompactLyd(totalValue), suffix: ELK.currencyCode(), sub: t('atCurrentPrices'), accent: UI.violet },
             ].map((k, i) => (
               <Card key={i} padding={14} style={{ boxShadow: `inset 0 2px 0 ${k.accent}` }}>
                 <div style={{ fontSize: 11.5, color: UI.muted, marginBottom: 6 }}>{k.label}</div>
@@ -131,7 +131,7 @@ function InventoryView({ onOpenSidebar }) {
                         <div style={{ fontSize: 11.5, color: UI.muted, marginTop: 2 }}>{item.brand} · {tCategory(item.cat)}</div>
                       </td>
                       <td className="elk-num" style={{ padding: '12px 14px', textAlign: 'end' }}>
-                        <div style={{ fontWeight: 500, color: stock === 0 ? UI.rose : stock < 30 ? UI.amber : UI.text }}>{stock}</div>
+                        <div style={{ fontWeight: 500, color: stock === 0 ? UI.rose : stock < ELK.LOW_STOCK ? UI.amber : UI.text }}>{stock}</div>
                         <div style={{ fontSize: 10.5, color: UI.faint }}>{t('of')} {ELK.invTotalQty(item)}</div>
                       </td>
                       <td className="elk-num" style={{ padding: '12px 14px', textAlign: 'end', color: UI.muted }}>
@@ -140,8 +140,8 @@ function InventoryView({ onOpenSidebar }) {
                       <td className="elk-num" style={{ padding: '12px 14px', textAlign: 'end', fontWeight: 500 }}>
                         {ELK.fmtLyd(item.priceLyd, { decimals: 2 })}
                       </td>
-                      <td className="elk-num" style={{ padding: '12px 14px', textAlign: 'end', color: marginLyd >= 0 ? UI.green : UI.rose, fontWeight: 500 }}>
-                        {ELK.fmtLyd(marginLyd, { decimals: 2, sign: true })} <span style={{ color: UI.faint, fontWeight: 400 }}>({marginPct.toFixed(0)}%)</span>
+                      <td className="elk-num" style={{ padding: '12px 14px', textAlign: 'end', color: (marginLyd ?? 0) >= 0 ? UI.green : UI.rose, fontWeight: 500 }}>
+                        {ELK.fmtLyd(marginLyd, { decimals: 2, sign: true })} <span style={{ color: UI.faint, fontWeight: 400 }}>({ELK.fmtPct(marginPct, 0)})</span>
                       </td>
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -210,7 +210,7 @@ function InventoryView({ onOpenSidebar }) {
                         <div className="elk-num" style={{ fontSize: 15, fontWeight: 700 }}>{ELK.fmtLyd(item.priceLyd)} <span style={{ fontSize: 11, color: UI.muted, fontWeight: 500 }}>{ELK.currencyCode()}</span></div>
                         <StockBadge stock={stock} small />
                         {role === 'admin' && (() => { const m = ELK.invMarginLyd(item); return (
-                          <span className="elk-num" style={{ marginInlineStart: 'auto', fontSize: 11.5, color: m >= 0 ? UI.green : UI.rose, fontWeight: 500 }}>
+                          <span className="elk-num" style={{ marginInlineStart: 'auto', fontSize: 11.5, color: (m ?? 0) >= 0 ? UI.green : UI.rose, fontWeight: 500 }}>
                             {ELK.fmtLyd(m, { sign: true })} {t('margin')}
                           </span>
                         ); })()}
@@ -231,7 +231,7 @@ function StockBadge({ stock, small }) {
   const fontSize = small ? 10.5 : 11.5;
   const padding = small ? '1px 7px' : '3px 8px';
   if (stock === 0) return <span style={{ fontSize, fontWeight: 600, padding, borderRadius: 999, background: UI.roseSoft, color: UI.rose }}>{t('outOfStock')}</span>;
-  if (stock < 30) return <span style={{ fontSize, fontWeight: 600, padding, borderRadius: 999, background: UI.amberSoft, color: UI.amber }}>{t('lowStock')} · {stock}</span>;
+  if (stock < ELK.LOW_STOCK) return <span style={{ fontSize, fontWeight: 600, padding, borderRadius: 999, background: UI.amberSoft, color: UI.amber }}>{t('lowStock')} · {stock}</span>;
   return <span style={{ fontSize, fontWeight: 500, padding, borderRadius: 999, background: UI.greenSoft, color: UI.green }}>{stock} {t('inStockShort')}</span>;
 }
 

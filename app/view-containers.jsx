@@ -10,7 +10,7 @@ function ContainersView({ onOpenSidebar }) {
 }
 
 function ContainerList({ onOpenSidebar }) {
-  const { navigate, containers, setModal, isMobile, lang } = useApp();
+  const { navigate, containers, inventory, setModal, isMobile, lang } = useApp();
   const [filter, setFilter] = useStateC('all');
   const [query, setQuery] = useStateC('');
 
@@ -26,8 +26,11 @@ function ContainerList({ onOpenSidebar }) {
   const totalLanded = containers.reduce((s, c) => s + ELK.landedLyd(c), 0);
   const inTransit = containers.filter(c => c.status === 'in_transit').length;
   const arrived = containers.filter(c => c.status === 'arrived').length;
-  const avgRate = containers.reduce((s, c) => s + c.rate, 0) / containers.length;
-  const totalStock = containers.reduce((s, c) => s + (c.units - ELK.containerSold(c)), 0);
+  // Average locked rate weighted by each container's landed USD, matching the label.
+  const totalLandedUsd = containers.reduce((s, c) => s + ELK.landedUsd(c), 0);
+  const avgRate = totalLandedUsd ? containers.reduce((s, c) => s + c.rate * ELK.landedUsd(c), 0) / totalLandedUsd : null;
+  // Same figure as Overview and Inventory: units pushed to sales and not yet sold.
+  const totalStock = inventory.reduce((s, i) => s + ELK.invStock(i), 0);
 
   return (
     <>
@@ -51,8 +54,8 @@ function ContainerList({ onOpenSidebar }) {
         <div style={{ padding: isMobile ? '16px 16px 0' : '20px 28px 0', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10 }}>
           {[
             { label: t('activeContainers'), value: containers.length, sub: `${inTransit} ${t('inTransitSub')} · ${arrived} ${t('arrivedSub')}`, accent: UI.navy },
-            { label: t('capitalDeployed'), value: `${(totalLanded/1_000_000).toFixed(2)}M`, suffix: ELK.currencyCode(), sub: t('acrossShipments'), accent: UI.accent },
-            { label: t('avgLockedRate'), value: avgRate.toFixed(3), suffix: ELK.currencyPair(), sub: t('weightedAcross'), accent: UI.violet },
+            { label: t('capitalDeployed'), value: ELK.fmtCompactLyd(totalLanded), suffix: ELK.currencyCode(), sub: t('acrossShipments'), accent: UI.accent },
+            { label: t('avgLockedRate'), value: avgRate == null ? '—' : avgRate.toFixed(3), suffix: ELK.currencyPair(), sub: t('weightedAcross'), accent: UI.violet },
             { label: t('unitsInInventory'), value: totalStock.toLocaleString('en-US'), sub: t('pushedNotSold'), accent: UI.green },
           ].map((k, i) => (
             <Card key={i} padding={14} style={{ borderRadius: 10, boxShadow: `inset 0 2px 0 ${k.accent}` }}>
@@ -115,7 +118,7 @@ function ContainerList({ onOpenSidebar }) {
               </thead>
               <tbody>
                 {filtered.map((c, idx) => {
-                  const sellPct = (ELK.containerSold(c) / c.units) * 100;
+                  const sellPct = ELK.pct(ELK.containerSold(c), c.units);
                   return (
                     <tr key={c.id} onClick={() => navigate('containers', { id: c.id })} className="elk-row-hover" style={{ borderBottom: idx === filtered.length - 1 ? 'none' : `1px solid ${UI.borderHair}`, cursor: 'pointer' }}>
                       <td style={{ padding: '13px 14px' }}>
@@ -146,9 +149,9 @@ function ContainerList({ onOpenSidebar }) {
                       <td style={{ padding: '13px 14px', minWidth: 140 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ flex: 1, height: 5, background: '#f4f4f5', borderRadius: 999, overflow: 'hidden', minWidth: 60 }}>
-                            <div style={{ height: '100%', width: `${sellPct}%`, background: sellPct >= 99 ? UI.faint : UI.accent, borderRadius: 999 }} />
+                            <div style={{ height: '100%', width: `${sellPct ?? 0}%`, background: (sellPct ?? 0) >= 99 ? UI.faint : UI.accent, borderRadius: 999 }} />
                           </div>
-                          <div className="elk-num" style={{ fontSize: 11.5, color: UI.muted, minWidth: 32, textAlign: 'end' }}>{Math.round(sellPct)}%</div>
+                          <div className="elk-num" style={{ fontSize: 11.5, color: UI.muted, minWidth: 32, textAlign: 'end' }}>{ELK.fmtPct(sellPct, 0)}</div>
                         </div>
                       </td>
                       <td style={{ padding: '13px 14px', textAlign: 'end' }}>
@@ -168,7 +171,7 @@ function ContainerList({ onOpenSidebar }) {
         {isMobile && (
           <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {filtered.map(c => {
-              const sellPct = (ELK.containerSold(c) / c.units) * 100;
+              const sellPct = ELK.pct(ELK.containerSold(c), c.units);
               return (
                 <div key={c.id} onClick={() => navigate('containers', { id: c.id })} style={{ background: UI.surface, border: `1px solid ${UI.border}`, borderRadius: 10, padding: 14, cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
@@ -188,11 +191,11 @@ function ContainerList({ onOpenSidebar }) {
                     </div>
                     <div>
                       <div style={{ fontSize: 10, color: UI.faint, textTransform: 'uppercase', letterSpacing: 0.4 }}>{t('landedCost')}</div>
-                      <div className="elk-num" style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{ELK.fmtLyd(ELK.landedLyd(c)/1000)}K</div>
+                      <div className="elk-num" style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{ELK.fmtCompactLyd(ELK.landedLyd(c))}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: 10, color: UI.faint, textTransform: 'uppercase', letterSpacing: 0.4 }}>{t('sold')}</div>
-                      <div className="elk-num" style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{Math.round(sellPct)}%</div>
+                      <div className="elk-num" style={{ fontSize: 13, fontWeight: 500, marginTop: 2 }}>{ELK.fmtPct(sellPct, 0)}</div>
                     </div>
                   </div>
                 </div>
@@ -218,11 +221,20 @@ function ContainerDetail({ id, onOpenSidebar }) {
   const expRev = ELK.expectedRevenueLyd(c);
   const expProf = ELK.expectedProfitLyd(c);
   const margin = ELK.marginPct(c);
-  const inInv = ELK.containerInInventory(c);
   const sold = ELK.containerSold(c);
-  const sellPct = (sold / c.units) * 100;
-  const remainingInContainer = c.units - inInv - sold;
-  const canPush = remainingInContainer > 0 && c.status === 'arrived' && c.products.length > 0;
+  const inInv = ELK.containerInInventory(c); // on the shelf: pushed − sold
+  const notPushed = ELK.containerNotPushed(c);
+  const sellPct = ELK.pct(sold, c.units);
+  const realised = ELK.realisedRevenueLyd(c);
+  // Unknown until a product manifest exists — don't dress it up as a profit.
+  const hasProjection = expProf != null;
+  const isProfit = hasProjection && expProf >= 0;
+  const canPush = notPushed > 0 && c.status === 'arrived' && c.products.length > 0;
+  // Why pushing isn't available — shown so a disabled button never looks broken.
+  const pushBlockedReason = canPush ? null
+    : c.status !== 'arrived' ? t('pushBlockedNotArrived')
+    : c.products.length === 0 ? t('pushBlockedNoLines')
+    : t('pushBlockedNothingLeft');
 
   return (
     <>
@@ -233,12 +245,13 @@ function ContainerDetail({ id, onOpenSidebar }) {
         actions={
           <>
             <Button variant="secondary" icon="arrowLeft" size="md" onClick={() => navigate('containers')}>{isMobile ? '' : t('back')}</Button>
-            {!isMobile && <Button variant="secondary" icon="edit" size="md">{t('edit')}</Button>}
+            {!isMobile && <Button variant="secondary" icon="edit" size="md" disabled title={t('editingUnavailable')}>{t('edit')}</Button>}
             <Button
               variant={canPush ? 'accent' : 'secondary'}
               icon="arrowDown"
               size="md"
               disabled={!canPush}
+              title={pushBlockedReason || undefined}
               onClick={() => setModal({ type: 'push-inventory', props: { containerId: c.id } })}
             >{isMobile ? t('push') : t('pushToInventory')}</Button>
           </>
@@ -289,17 +302,19 @@ function ContainerDetail({ id, onOpenSidebar }) {
               </div>
             </Card>
             {/* Profit */}
-            <Card style={{ boxShadow: `inset 0 2px 0 ${expProf >= 0 ? UI.green : UI.rose}` }}>
+            <Card style={{ boxShadow: `inset 0 2px 0 ${!hasProjection ? UI.border : isProfit ? UI.green : UI.rose}` }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div style={{ fontSize: 12, color: UI.muted, whiteSpace: 'nowrap' }}>{t('projectedProfit')}</div>
-                <span style={{ fontSize: 10.5, fontWeight: 600, color: expProf >= 0 ? UI.green : UI.rose, padding: '2px 8px', background: expProf >= 0 ? UI.greenSoft : UI.roseSoft, borderRadius: 999, letterSpacing: 0.4, textTransform: 'uppercase' }}>{expProf >= 0 ? t('profit') : t('loss')}</span>
+                {hasProjection && (
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: isProfit ? UI.green : UI.rose, padding: '2px 8px', background: isProfit ? UI.greenSoft : UI.roseSoft, borderRadius: 999, letterSpacing: 0.4, textTransform: 'uppercase' }}>{isProfit ? t('profit') : t('loss')}</span>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
-                <div className="elk-num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.6, color: expProf >= 0 ? UI.green : UI.rose }}>{ELK.fmtLyd(expProf, { sign: true })}</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: UI.muted }}>{ELK.currencyCode()}</div>
+                <div className="elk-num" style={{ fontSize: 30, fontWeight: 700, letterSpacing: -0.6, color: !hasProjection ? UI.faint : isProfit ? UI.green : UI.rose }}>{ELK.fmtLyd(expProf, { sign: true })}</div>
+                {hasProjection && <div style={{ fontSize: 13, fontWeight: 500, color: UI.muted }}>{ELK.currencyCode()}</div>}
               </div>
               <div style={{ fontSize: 12.5, color: UI.muted }}>
-                <span className="elk-num">{margin.toFixed(1)}%</span> {t('margin')} · {t('atLockedRate')} <span className="elk-num" style={{ color: UI.text, fontWeight: 500 }}>{c.rate.toFixed(3)}</span>
+                <span className="elk-num">{ELK.fmtPct(margin)}</span> {t('margin')} · {t('atLockedRate')} <span className="elk-num" style={{ color: UI.text, fontWeight: 500 }}>{c.rate.toFixed(3)}</span>
               </div>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${UI.border}`, display: 'flex', gap: 24 }}>
                 <div>
@@ -307,8 +322,8 @@ function ContainerDetail({ id, onOpenSidebar }) {
                   <div className="elk-num" style={{ fontSize: 14, fontWeight: 600 }}>{ELK.fmtLyd(expRev)} <span style={{ color: UI.muted, fontSize: 11 }}>{ELK.currencyCode()}</span></div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: UI.faint, marginBottom: 2 }}>{t('realised')} ({Math.round(sellPct)}%)</div>
-                  <div className="elk-num" style={{ fontSize: 14, fontWeight: 600 }}>{ELK.fmtLyd(expRev * sellPct / 100)} <span style={{ color: UI.muted, fontSize: 11 }}>{ELK.currencyCode()}</span></div>
+                  <div style={{ fontSize: 11, color: UI.faint, marginBottom: 2 }}>{t('realised')} ({ELK.fmtPct(sellPct, 0)})</div>
+                  <div className="elk-num" style={{ fontSize: 14, fontWeight: 600 }}>{ELK.fmtLyd(realised)} <span style={{ color: UI.muted, fontSize: 11 }}>{ELK.currencyCode()}</span></div>
                 </div>
               </div>
             </Card>
@@ -379,21 +394,27 @@ function ContainerDetail({ id, onOpenSidebar }) {
                 <CardHeader title={t('inventoryPipeline')} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {[
-                    { label: t('sold'), value: sold, color: UI.green, pct: (sold/c.units)*100 },
-                    { label: t('inSalesInventory'), value: inInv, color: UI.accent, pct: (inInv/c.units)*100 },
-                    { label: t('inContainerNotPushed'), value: remainingInContainer, color: UI.amber, pct: (remainingInContainer/c.units)*100 },
+                    { label: t('sold'), value: sold, color: UI.green, pct: ELK.pct(sold, c.units) },
+                    { label: t('inSalesInventory'), value: inInv, color: UI.accent, pct: ELK.pct(inInv, c.units) },
+                    { label: t('inContainerNotPushed'), value: notPushed, color: UI.amber, pct: ELK.pct(notPushed, c.units) },
                   ].map(row => (
                     <div key={row.label}>
                       <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 4 }}>
                         <div style={{ flex: 1, fontSize: 12, color: UI.muted }}>{row.label}</div>
-                        <div className="elk-num" style={{ fontSize: 12.5, fontWeight: 500 }}>{row.value} <span style={{ color: UI.faint }}>({row.pct.toFixed(0)}%)</span></div>
+                        <div className="elk-num" style={{ fontSize: 12.5, fontWeight: 500 }}>{row.value} <span style={{ color: UI.faint }}>({ELK.fmtPct(row.pct, 0)})</span></div>
                       </div>
                       <div style={{ height: 5, background: '#f4f4f5', borderRadius: 999, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${row.pct}%`, background: row.color, borderRadius: 999 }} />
+                        <div style={{ height: '100%', width: `${row.pct ?? 0}%`, background: row.color, borderRadius: 999 }} />
                       </div>
                     </div>
                   ))}
                 </div>
+                {pushBlockedReason && (
+                  <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${UI.border}`, display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11.5, color: UI.muted, lineHeight: 1.5 }}>
+                    <span style={{ flexShrink: 0, marginTop: 1, color: UI.faint, display: 'inline-flex' }}><Icon name="package" size={12} /></span>
+                    <span>{pushBlockedReason}</span>
+                  </div>
+                )}
               </Card>
             </div>
           </div>
@@ -405,7 +426,7 @@ function ContainerDetail({ id, onOpenSidebar }) {
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{t('productsInContainer')}</div>
                 <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>{c.products.length} {t('skus')} · <span className="elk-num">{c.products.reduce((s,p) => s+p.qty, 0).toLocaleString('en-US')}</span> {t('unitsLabel')}</div>
               </div>
-              <Button variant="secondary" size="sm" icon="edit">{t('editLines')}</Button>
+              <Button variant="secondary" size="sm" icon="edit" disabled title={t('editingUnavailable')}>{t('editLines')}</Button>
             </div>
             {c.products.length === 0
               ? <EmptyState icon="package" title={t('noProductLinesYet')} subtitle={t('closedOrArchived')} />
@@ -432,7 +453,7 @@ function ContainerDetail({ id, onOpenSidebar }) {
                       {c.products.map((p, i) => {
                         const unitLyd = p.costUsd * c.rate;
                         const profit = p.priceLyd - unitLyd;
-                        const mPct = (profit / p.priceLyd) * 100;
+                        const mPct = ELK.pct(profit, p.priceLyd);
                         return (
                           <tr key={p.sku} style={{ borderTop: `1px solid ${UI.borderHair}` }}>
                             <td className="elk-mono" style={{ padding: '11px 16px', fontSize: 11.5, color: UI.muted }}>{p.sku}</td>
@@ -443,7 +464,7 @@ function ContainerDetail({ id, onOpenSidebar }) {
                             <td className="elk-num" style={{ padding: '11px 16px', textAlign: 'end' }}>{ELK.fmtLyd(unitLyd, { decimals: 2 })}</td>
                             <td className="elk-num" style={{ padding: '11px 16px', textAlign: 'end', fontWeight: 500 }}>{ELK.fmtLyd(p.priceLyd, { decimals: 2 })}</td>
                             <td className="elk-num" style={{ padding: '11px 16px', textAlign: 'end', color: profit >= 0 ? UI.green : UI.rose, fontWeight: 500 }}>
-                              {ELK.fmtLyd(profit, { decimals: 2, sign: true })} <span style={{ color: UI.faint, fontWeight: 400 }}>({mPct.toFixed(0)}%)</span>
+                              {ELK.fmtLyd(profit, { decimals: 2, sign: true })} <span style={{ color: UI.faint, fontWeight: 400 }}>({ELK.fmtPct(mPct, 0)})</span>
                             </td>
                           </tr>
                         );
@@ -472,21 +493,30 @@ function PushInventoryModal({ containerId, onClose }) {
     return { ...p, available: p.qty - alreadyPushed, alreadyPushed };
   });
 
-  const [qtys, setQtys] = useStateC(() => Object.fromEntries(available.map(p => [p.sku, Math.min(p.available, Math.floor(p.available * 0.5))])));
+  // Start at zero: units reach sales inventory only when someone deliberately
+  // selects them, never by confirming a pre-filled amount.
+  const [qtys, setQtys] = useStateC(() => Object.fromEntries(available.map(p => [p.sku, 0])));
   const [step, setStep] = useStateC(1);
 
   const totalUnits = Object.values(qtys).reduce((s, n) => s + (n || 0), 0);
   const totalValue = available.reduce((s, p) => s + (qtys[p.sku] || 0) * p.priceLyd, 0);
   const totalCost = available.reduce((s, p) => s + (qtys[p.sku] || 0) * p.costUsd * c.rate, 0);
+  // A push can never release more than the container physically holds, even if
+  // the product manifest adds up to more than its unit count.
+  const capacity = ELK.containerPushCapacity(c);
+  const overCapacity = totalUnits > capacity;
+
+  const setQty = (sku, n, max) => setQtys({ ...qtys, [sku]: Math.max(0, Math.min(max, n)) });
 
   const handlePush = () => {
+    if (totalUnits === 0 || overCapacity) return;
     const newInv = inventory.map(item => ({ ...item, lots: [...item.lots] }));
     available.forEach(p => {
       const qty = qtys[p.sku] || 0;
       if (qty === 0) return;
       let item = newInv.find(i => i.sku === p.sku);
       if (!item) {
-        item = { sku: p.sku, name: p.name, brand: p.brand, cat: p.cat, priceLyd: p.priceLyd, lots: [], sold: 0 };
+        item = { sku: p.sku, name: p.name, brand: p.brand, cat: p.cat, priceLyd: p.priceLyd, lots: [] };
         newInv.push(item);
       }
       const existingLot = item.lots.find(l => l.container === c.id);
@@ -508,14 +538,14 @@ function PushInventoryModal({ containerId, onClose }) {
       footer={step === 1 ? (
         <>
           <Button variant="ghost" onClick={onClose}>{t('cancel')}</Button>
-          <Button variant="accent" iconRight="arrowRight" onClick={() => setStep(2)} disabled={totalUnits === 0}>
+          <Button variant="accent" iconRight="arrowRight" onClick={() => setStep(2)} disabled={totalUnits === 0 || overCapacity}>
             {t('reviewUnits', { n: totalUnits })}
           </Button>
         </>
       ) : (
         <>
           <Button variant="ghost" onClick={() => setStep(1)}>{t('back')}</Button>
-          <Button variant="accent" icon="check" onClick={handlePush}>{t('confirmPush')}</Button>
+          <Button variant="accent" icon="check" onClick={handlePush} disabled={totalUnits === 0 || overCapacity}>{t('confirmPush')}</Button>
         </>
       )}
     >
@@ -525,8 +555,17 @@ function PushInventoryModal({ containerId, onClose }) {
             <Icon name="package" size={16} color={UI.accentText} />
             <div style={{ fontSize: 12.5, color: UI.accentText, lineHeight: 1.5 }}>
               {t('selectQuantities')} <b>{t('hiddenFromSales')}</b>{t('canBeReversed')}
+              <div style={{ marginTop: 4, fontWeight: 500 }}>
+                {t('remainingCapacity')}: <span className="elk-num">{capacity.toLocaleString('en-US')}</span> {t('unitsLabel')}
+              </div>
             </div>
           </div>
+
+          {overCapacity && (
+            <div style={{ padding: '10px 12px', background: UI.roseSoft, border: `1px solid ${UI.rose}33`, borderRadius: 8, marginBottom: 12, fontSize: 12.5, color: UI.rose, fontWeight: 500 }}>
+              <span className="elk-num">{totalUnits.toLocaleString('en-US')}</span> &gt; <span className="elk-num">{capacity.toLocaleString('en-US')}</span> {t('unitsLabel')}
+            </div>
+          )}
 
           <div style={{ border: `1px solid ${UI.border}`, borderRadius: 8, overflow: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 110px 100px', gap: 0, padding: '10px 14px', background: UI.surfaceAlt, fontSize: 11, fontWeight: 600, color: UI.muted, textTransform: 'uppercase', letterSpacing: 0.4, borderBottom: `1px solid ${UI.border}` }}>
@@ -536,7 +575,12 @@ function PushInventoryModal({ containerId, onClose }) {
               <div style={{ textAlign: 'end' }}>{t('pushNow')}</div>
               <div style={{ textAlign: 'end' }}>{t('valueLyd')}</div>
             </div>
-            {available.map(p => (
+            {available.map(p => {
+              const qty = qtys[p.sku] || 0;
+              // Capped by this SKU's unpushed remainder AND the container's
+              // remaining capacity, minus what the other lines already claim.
+              const lineMax = Math.min(p.available, Math.max(0, capacity - (totalUnits - qty)));
+              return (
               <div key={p.sku} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 110px 100px', gap: 0, padding: '12px 14px', borderTop: `1px solid ${UI.borderHair}`, alignItems: 'center' }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{tProductName(p.sku, p.name)}</div>
@@ -546,19 +590,20 @@ function PushInventoryModal({ containerId, onClose }) {
                 <div className="elk-num" style={{ textAlign: 'end', fontSize: 13, color: UI.faint }}>{p.alreadyPushed}</div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${UI.borderStrong}`, borderRadius: 6, overflow: 'hidden' }}>
-                    <button onClick={() => setQtys({ ...qtys, [p.sku]: Math.max(0, (qtys[p.sku] || 0) - 10) })} style={{ width: 26, height: 28, border: 'none', background: UI.surface, cursor: 'pointer', color: UI.muted, fontSize: 14 }}>−</button>
+                    <button onClick={() => setQty(p.sku, qty - 10, lineMax)} style={{ width: 26, height: 28, border: 'none', background: UI.surface, cursor: 'pointer', color: UI.muted, fontSize: 14 }}>−</button>
                     <input
                       type="number"
-                      value={qtys[p.sku] || 0}
-                      onChange={(e) => setQtys({ ...qtys, [p.sku]: Math.max(0, Math.min(p.available, Number(e.target.value))) })}
+                      value={qty}
+                      onChange={(e) => setQty(p.sku, Number(e.target.value), lineMax)}
                       style={{ width: 50, padding: '5px 4px', border: 'none', borderLeft: `1px solid ${UI.border}`, borderRight: `1px solid ${UI.border}`, fontSize: 12.5, textAlign: 'center', fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums' }}
                     />
-                    <button onClick={() => setQtys({ ...qtys, [p.sku]: Math.min(p.available, (qtys[p.sku] || 0) + 10) })} style={{ width: 26, height: 28, border: 'none', background: UI.surface, cursor: 'pointer', color: UI.muted, fontSize: 14 }}>+</button>
+                    <button onClick={() => setQty(p.sku, qty + 10, lineMax)} style={{ width: 26, height: 28, border: 'none', background: UI.surface, cursor: 'pointer', color: UI.muted, fontSize: 14 }}>+</button>
                   </div>
                 </div>
-                <div className="elk-num" style={{ textAlign: 'end', fontSize: 13, fontWeight: 500 }}>{ELK.fmtLyd((qtys[p.sku] || 0) * p.priceLyd)}</div>
+                <div className="elk-num" style={{ textAlign: 'end', fontSize: 13, fontWeight: 500 }}>{ELK.fmtLyd(qty * p.priceLyd)}</div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -604,22 +649,23 @@ function PushInventoryModal({ containerId, onClose }) {
 function NewContainerModal({ onClose }) {
   const { containers, setContainers, showToast } = useApp();
   const [form, setForm] = useStateC({
-    id: `ELK-2025-${String(containers.length + 8).padStart(3, '0')}`,
+    id: ELK.nextContainerId(containers),
     bl: '', origin: 'Shanghai, CN', eta: '',
-    rate: '5.45', purchaseUsd: '', shippingUsd: '', customsUsd: '',
+    rate: '5.45', purchaseUsd: '', shippingUsd: '', customsUsd: '', units: '',
   });
 
   const u = parseFloat(form.purchaseUsd || 0);
   const s = parseFloat(form.shippingUsd || 0);
   const cu = parseFloat(form.customsUsd || 0);
   const r = parseFloat(form.rate || 0);
+  const units = parseInt(form.units || 0, 10);
   const total = u + s + cu;
   const totalLyd = total * r;
 
   const handleCreate = () => {
-    if (!form.bl || !u) { showToast(t('fillRequired'), 'error'); return; }
+    if (!form.bl || !u || !(units > 0)) { showToast(t('fillRequired'), 'error'); return; }
     const next = { ...form, status: 'in_transit', purchaseUsd: u, shippingUsd: s, customsUsd: cu, rate: r,
-                   rateDate: new Date().toISOString().slice(0,10), units: 0, arrival: null, products: [] };
+                   rateDate: new Date().toISOString().slice(0,10), units, arrival: null, products: [] };
     setContainers([next, ...containers]);
     showToast(t('containerCreated', { id: form.id }), 'success');
     onClose();
@@ -661,6 +707,9 @@ function NewContainerModal({ onClose }) {
           </Field>
           <Field label={t('expectedArrival')}>
             <input type="date" style={baseInput} value={form.eta} onChange={(e) => setForm({ ...form, eta: e.target.value })} />
+          </Field>
+          <Field label={t('totalUnits')}>
+            <input style={baseInput} type="number" min="1" value={form.units} onChange={(e) => setForm({ ...form, units: e.target.value })} placeholder="1840" />
           </Field>
         </div>
 
